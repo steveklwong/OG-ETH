@@ -19,29 +19,20 @@ SAM_path = os.path.join(
 def read_SAM():
     if is_connected():
         try:
-            SAM = pd.read_csv(
-                SAM_path,
-                index_col=1,
-                thousands=",",
-                dtype=object,
-            )
+            SAM = pd.read_csv(SAM_path, index_col=1, thousands=",")
             print("Successfully read SAM from Github repository.")
 
-            # Keep row/column labels as strings
-            SAM.index = SAM.index.map(lambda x: str(x) if pd.notna(x) else "")
-            SAM.columns = SAM.columns.map(str)
+            SAM.index = SAM.index.astype(str)
+            SAM.columns = SAM.columns.astype(str)
 
-            # Convert data columns to numeric where possible.
-            # Leave genuine text columns unchanged.
-            for col in SAM.columns:
-                s = SAM[col]
+            label_col = SAM.columns[0]
+            value_cols = SAM.columns.drop(label_col)
 
-                converted = pd.to_numeric(s, errors="coerce")
-
-                # Convert if the column is mostly numeric or is a known numeric column
-                if converted.notna().sum() > 0:
-                    SAM[col] = converted.fillna(0)
-
+            SAM[value_cols] = SAM[value_cols].apply(
+                lambda s: pd.to_numeric(s, errors="coerce")
+            )
+            SAM[value_cols] = SAM[value_cols].fillna(0)
+        
         except Exception as e:
             print(f"Failed to read from the GitHub repository: {e}")
             SAM = None
