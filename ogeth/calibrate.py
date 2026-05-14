@@ -107,10 +107,11 @@ class Calibration:
 
             # earnings profiles
             self.e = income.get_e_interp(
+                p.E,
                 p.S,
-                self.demographic_params["omega_SS"],
-                demog80["omega_SS"],
+                p.J,
                 p.lambdas,
+                demog80["omega_SS"],
                 plot_path=output_path,
             )
         except Exception as exc:

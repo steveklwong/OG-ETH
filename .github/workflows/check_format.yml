@@ -6,9 +6,21 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-      - uses: psf/black@stable
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          options: "-l 79 --check"
-          src: "."
+          persist-credentials: false
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          activate-environment: ogeth-dev
+          environment-file: environment.yml
+          auto-activate-base: false
+
+      - name: Check formatting with black
+        shell: bash -l {0}
+        run: |
+          python -m black --check -l 79 .

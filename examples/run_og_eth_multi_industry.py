@@ -14,7 +14,6 @@ from ogcore import output_plots as op
 from ogcore.execute import runner
 from ogcore.utils import safe_read_pickle
 from ogeth.utils import is_connected
-import ogcore
 
 # Use a custom matplotlib style file for plots
 plt.style.use("ogcore.OGcorePlots")
@@ -28,7 +27,7 @@ def main():
 
     # Directories to save data
     CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-    save_dir = os.path.join(CUR_DIR, "OG-ETH-Example")
+    save_dir = os.path.join(CUR_DIR, "OG-ETH-MultiIndustryExample")
     base_dir = os.path.join(save_dir, "OUTPUT_BASELINE")
     reform_dir = os.path.join(save_dir, "OUTPUT_REFORM")
 
@@ -44,7 +43,6 @@ def main():
         baseline_dir=base_dir,
         output_base=base_dir,
     )
-    # Update parameters for baseline from default json file
     with (
         files("ogeth")
         .joinpath("ogeth_default_parameters.json")
@@ -52,12 +50,23 @@ def main():
     ):
         defaults = json.load(file)
     p.update_specifications(defaults)
+    # Update again with multi-industry
+    with (
+        files("ogeth")
+        .joinpath("ogeth_multi_industry_parameters.json")
+        .open("r") as file
+    ):
+        multi_defaults = json.load(file)
+    p.update_specifications(multi_defaults)
     # Update parameters from calibrate.py Calibration class
     if is_connected():  # only update if connected to internet
         c = Calibration(
-            p, update_from_api=False
+            p, update_from_api=True
         )  # =True will update data from online sources
         updated_params = c.get_dict()
+        # don't update gamma here, use json file value
+        if "gamma" in updated_params:
+            del updated_params["gamma"]
         p.update_specifications(updated_params)
 
     # Run model
@@ -66,6 +75,7 @@ def main():
     print("run time = ", time.time() - start_time)
 
     """
+    ---------------------------------------------------------------------------
     Run reform policy
     ---------------------------------------------------------------------------
     """

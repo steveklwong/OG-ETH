@@ -5,6 +5,7 @@ import os
 import json
 import time
 import copy
+import numpy as np
 from importlib.resources import files
 import matplotlib.pyplot as plt
 from ogeth.calibrate import Calibration
@@ -15,6 +16,8 @@ from ogcore.execute import runner
 from ogcore.utils import safe_read_pickle
 from ogeth.utils import is_connected
 import ogcore
+from diesel_sam import CONS_DICT, PROD_DICT
+from ogeth import input_output as io
 
 # Use a custom matplotlib style file for plots
 plt.style.use("ogcore.OGcorePlots")
@@ -28,7 +31,7 @@ def main():
 
     # Directories to save data
     CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-    save_dir = os.path.join(CUR_DIR, "OG-ETH-Example")
+    save_dir = os.path.join(CUR_DIR, "OG-ETH-DieselTax")
     base_dir = os.path.join(save_dir, "OUTPUT_BASELINE")
     reform_dir = os.path.join(save_dir, "OUTPUT_REFORM")
 
@@ -44,7 +47,6 @@ def main():
         baseline_dir=base_dir,
         output_base=base_dir,
     )
-    # Update parameters for baseline from default json file
     with (
         files("ogeth")
         .joinpath("ogeth_default_parameters.json")
@@ -52,13 +54,25 @@ def main():
     ):
         defaults = json.load(file)
     p.update_specifications(defaults)
-    # Update parameters from calibrate.py Calibration class
-    if is_connected():  # only update if connected to internet
-        c = Calibration(
-            p, update_from_api=False
-        )  # =True will update data from online sources
-        updated_params = c.get_dict()
-        p.update_specifications(updated_params)
+    # Update again with multi-industry -- breakout fuel consumption
+    multi_spec = {
+        "M": 4,
+        "I": 6,
+        "gamma": [0.4, 0.7, 0.6, 0.65],
+        "gamma_g": [0.0, 0.0, 0.0, 0.0],
+        "epsilon": [1.0, 1.0, 1.0, 1.0],
+        "Z": [[1.0, 1.0, 1.0, 1.0]],
+        "tau_c": [
+            [0.07, 0.09, 0.0, 0.09, 0.09, 0.09]
+        ],  # set initial consumption tax rates
+    }
+    p.update_specifications(multi_spec)
+
+    # Update io_matrix and alpha_c directly
+    alpha_c_dict = io.get_alpha_c(cons_dict=CONS_DICT)
+    p.alpha_c = np.array(list(alpha_c_dict.values()))
+    io_df = io.get_io_matrix(cons_dict=CONS_DICT, prod_dict=PROD_DICT)
+    p.io_matrix = io_df.values
 
     # Run model
     start_time = time.time()
@@ -66,6 +80,7 @@ def main():
     print("run time = ", time.time() - start_time)
 
     """
+    ---------------------------------------------------------------------------
     Run reform policy
     ---------------------------------------------------------------------------
     """
@@ -77,7 +92,9 @@ def main():
 
     # Parameter change for the reform run
     updated_params_ref = {
-        "cit_rate": [[0.25]],  # decrease CIT rate to 25%
+        "tau_c": [
+            [0.07, 0.09, 0.015, 0.09, 0.09, 0.09]
+        ],  # increase tau_c on diesel consumption by 30%
     }
     p2.update_specifications(updated_params_ref)
 
