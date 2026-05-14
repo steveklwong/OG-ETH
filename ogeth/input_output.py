@@ -19,19 +19,39 @@ SAM_path = os.path.join(
 def read_SAM():
     if is_connected():
         try:
-            SAM = pd.read_csv(SAM_path, index_col=1, thousands=",")
+            SAM = pd.read_csv(
+                SAM_path,
+                index_col=1,
+                thousands=",",
+                dtype=object,
+            )
             print("Successfully read SAM from Github repository.")
-            # replace NaN with 0
-            SAM.fillna(0, inplace=True)
+
+            # Keep row/column labels as strings
+            SAM.index = SAM.index.map(lambda x: str(x) if pd.notna(x) else "")
+            SAM.columns = SAM.columns.map(str)
+
+            # Convert data columns to numeric where possible.
+            # Leave genuine text columns unchanged.
+            for col in SAM.columns:
+                s = SAM[col]
+
+                converted = pd.to_numeric(s, errors="coerce")
+
+                # Convert if the column is mostly numeric or is a known numeric column
+                if converted.notna().sum() > 0:
+                    SAM[col] = converted.fillna(0)
+
         except Exception as e:
             print(f"Failed to read from the GitHub repository: {e}")
             SAM = None
-        # If both attempts fail, SAM will be None
+
         if SAM is None:
             print("Failed to read SAM from both sources.")
     else:  # pragma: no cover
         SAM = None
         print("No internet connection. SAM cannot be read.")
+
     return SAM
 
 
